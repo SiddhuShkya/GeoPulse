@@ -1,0 +1,7 @@
+streamlit
+folium 
+streamlit-folium
+geopy
+earthengine-api
+geopandas
+python-dotenv
