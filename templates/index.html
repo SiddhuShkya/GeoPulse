@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}GeoPulse - Home{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+<div class="row fade-in">
+    <div class="col-12">
+        <div class="jumbotron p-5 rounded mb-4">
+            <div class="text-center">
+                <h1 class="display-4 mb-3">
+                    <i class="fas fa-satellite me-3"></i>GeoPulse
+                </h1>
+                <p class="lead mb-3">Satellite Data Monitoring and Environmental Change Detection System</p>
+                <hr class="my-4" style="border-color: rgba(255,255,255,0.3);">
+                <p class="mb-0">An open-source platform for automated satellite imagery ingestion, processing, and analysis.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row slide-up">
+    <div class="col-md-6 mb-4">
+        <div class="card h-100 feature-card" onclick="window.location.href='/interactive_map'">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-map-marked-alt"></i>
+                    Interactive Map
+                </h5>
+                <p class="card-text">Search for locations, draw polygons on the map, and create Area of Interest (AOI) files. Download your drawn polygons as GeoJSON.</p>
+                <a href="/interactive_map" class="btn btn-primary">
+                    <i class="fas fa-arrow-right"></i> Go to Interactive Map
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="card h-100 feature-card" onclick="window.location.href='/fetch_satellite_data'">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-satellite-dish"></i>
+                    Fetch Satellite Data
+                </h5>
+                <p class="card-text">Upload an AOI file and fetch satellite imagery from Google Earth Engine. Supports Sentinel-2 and Landsat-8 data with cloud filtering.</p>
+                <a href="/fetch_satellite_data" class="btn btn-primary">
+                    <i class="fas fa-arrow-right"></i> Fetch Satellite Data
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4 slide-up">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-rocket me-2"></i>Key Features
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item">
+                                <i class="fas fa-satellite"></i>
+                                Automated Data Pipeline from Google Earth Engine
+                            </li>
+                            <li class="list-group-item">
+                                <i class="fas fa-calculator"></i>
+                                Index Computation (NDVI, NDWI, NDBI, LST)
+                            </li>
+                            <li class="list-group-item">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                Anomaly Detection for environmental changes
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item">
+                                <i class="fas fa-map"></i>
+                                Interactive maps with drawing tools
+                            </li>
+                            <li class="list-group-item">
+                                <i class="fas fa-leaf"></i>
+                                Vegetation health tracking
+                            </li>
+                            <li class="list-group-item">
+                                <i class="fas fa-city"></i>
+                                Urban expansion monitoring
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}

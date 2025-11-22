@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}Fetch Satellite Data - GeoPulse{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+<div class="row mb-4 fade-in">
+    <div class="col-12">
+        <h2 class="mb-2">
+            <i class="fas fa-satellite-dish me-2 text-primary"></i>Fetch Satellite Imagery Using AOI
+        </h2>
+        <p class="text-muted mb-3">
+            <i class="fas fa-info-circle me-1"></i>
+            Upload an AOI file and configure parameters to fetch satellite imagery from Google Earth Engine.
+        </p>
+        <div id="eeStatusAlert" class="alert alert-warning" role="alert" style="display: none;">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Earth Engine Status:</strong> <span id="eeStatusText">Checking...</span>
+        </div>
+    </div>
+</div>
+
+<div class="row slide-up">
+    <div class="col-md-4">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-upload me-2"></i>Upload AOI File
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">
+                        <i class="fas fa-file me-1"></i>Select File
+                    </label>
+                    <input type="file" id="aoiUpload" class="form-control" accept=".geojson,.kml,.kmz,.zip">
+                    <small class="text-muted d-block mt-1">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Supported: GeoJSON, KML, KMZ, Shapefile (ZIP)
+                    </small>
+                </div>
+                <button class="btn btn-primary w-100" onclick="uploadAOI()" id="uploadBtn">
+                    <i class="fas fa-upload me-2"></i>Upload AOI
+                </button>
+                <div id="uploadStatus" class="mt-3"></div>
+            </div>
+        </div>
+
+        <div class="card mb-3" id="configCard" style="display: none;">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-sliders-h me-2"></i>Configuration
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">
+                        <i class="fas fa-calendar-alt me-1"></i>Start Date
+                    </label>
+                    <input type="date" id="startDate" class="form-control" value="">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">
+                        <i class="fas fa-calendar-check me-1"></i>End Date
+                    </label>
+                    <input type="date" id="endDate" class="form-control" value="">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">
+                        <i class="fas fa-cloud me-1"></i>Maximum Cloud Coverage
+                        <span class="badge bg-primary ms-2" id="cloudValue">20%</span>
+                    </label>
+                    <input type="range" id="cloudCoverage" class="form-range" min="0" max="100" value="20" step="5">
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">0%</small>
+                        <small class="text-muted">100%</small>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">
+                        <i class="fas fa-satellite me-1"></i>Select Satellite
+                    </label>
+                    <select id="satellite" class="form-select">
+                        <option value="Sentinel-2">🛰️ Sentinel-2</option>
+                        <option value="Landsat-8">🛰️ Landsat-8</option>
+                    </select>
+                </div>
+                <button class="btn btn-success w-100" onclick="fetchSatelliteData()" id="fetchBtn">
+                    <i class="fas fa-rocket me-2"></i>Fetch GeoTIFFs
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-map me-2"></i>AOI Preview
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                <div id="aoiMap" style="height: 600px; width: 100%; position: relative;"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>Status
+                </h5>
+                <span class="badge bg-info" id="statusBadge">Ready</span>
+            </div>
+            <div class="card-body">
+                <div id="statusMessage" class="alert alert-info mb-0">
+                    <i class="fas fa-upload me-2"></i>Upload an AOI file to get started.
+                </div>
+                <div id="progressContainer" class="mt-3" style="display: none;">
+                    <div class="progress mb-2">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%" id="progressBar"></div>
+                    </div>
+                    <small class="text-muted" id="progressText">Initializing...</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="alert alert-info mt-3" role="alert" id="alertBox" style="display: none;">
+    <i class="fas fa-info-circle me-2"></i><span id="alertText"></span>
+</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Set default dates
+    document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date();
+        const oneYearAgo = new Date(today);
+        oneYearAgo.setFullYear(today.getFullYear() - 1);
+        
+        document.getElementById('endDate').value = today.toISOString().split('T')[0];
+        document.getElementById('startDate').value = oneYearAgo.toISOString().split('T')[0];
+        
+        // Cloud coverage slider with better UX
+        const cloudSlider = document.getElementById('cloudCoverage');
+        const cloudValue = document.getElementById('cloudValue');
+        
+        cloudSlider.addEventListener('input', function() {
+            const value = this.value;
+            cloudValue.textContent = value + '%';
+            
+            // Update badge color based on value
+            if (value <= 20) {
+                cloudValue.className = 'badge bg-success ms-2';
+            } else if (value <= 50) {
+                cloudValue.className = 'badge bg-warning ms-2';
+            } else {
+                cloudValue.className = 'badge bg-danger ms-2';
+            }
+        });
+        
+        // Trigger initial update
+        cloudSlider.dispatchEvent(new Event('input'));
+    });
+</script>
+<script src="{{ url_for('static', filename='js/fetch_satellite_data.js') }}"></script>
+{% endblock %}
