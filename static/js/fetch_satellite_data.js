@@ -10,51 +10,42 @@ function initMap() {
         console.error('Map container not found');
         return;
     }
-    
+
     // Initialize map
     map = L.map('aoiMap', {
         zoomControl: true,
         attributionControl: true
     }).setView([28.7221, 80.6362], 7);
-    
+
     // Add default tile layer
     currentTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors',
         maxZoom: 19
     }).addTo(map);
-    
+
     // Invalidate size after a short delay to ensure proper rendering
     setTimeout(() => {
         map.invalidateSize();
     }, 100);
-    
+
     console.log('Map initialized successfully');
 }
 
 // Change map type
-function changeMapType() {
+// Change map type
+function changeMapType(type) {
     if (!map) {
         console.error('Map not initialized');
         return;
     }
-    
-    // Get map type from global selector or local selector
-    const globalSelector = document.getElementById('globalMapType');
-    const localSelector = document.getElementById('mapType');
-    const mapType = globalSelector ? globalSelector.value : (localSelector ? localSelector.value : 'Default');
-    
-    // Sync selectors
-    if (globalSelector && localSelector) {
-        localSelector.value = mapType;
-    } else if (globalSelector) {
-        globalSelector.value = mapType;
-    }
-    
+
+    const mapType = type || 'Default';
+
     // Remove current tile layer
     if (currentTileLayer) {
         map.removeLayer(currentTileLayer);
     }
-    
+
     // Add new tile layer based on selection
     if (mapType === 'Satellite') {
         currentTileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
@@ -67,7 +58,7 @@ function changeMapType() {
             maxZoom: 19
         }).addTo(map);
     }
-    
+
     // Re-add AOI layer if it exists
     if (aoiLayer) {
         map.addLayer(aoiLayer);
@@ -79,12 +70,12 @@ function changeMapType() {
             });
         }
     }
-    
+
     // Invalidate map size
     setTimeout(() => {
         map.invalidateSize();
     }, 100);
-    
+
     console.log('Map type changed to:', mapType);
 }
 
@@ -93,42 +84,42 @@ async function uploadAOI() {
     const fileInput = document.getElementById('aoiUpload');
     const file = fileInput.files[0];
     const uploadBtn = document.getElementById('uploadBtn');
-    
+
     if (!file) {
         showAlert('Please select a file', 'warning');
         updateStatus('Please select an AOI file to upload.', 'info');
         return;
     }
-    
+
     const formData = new FormData();
     formData.append('file', file);
-    
+
     // Show loading state
     const originalBtnText = uploadBtn.innerHTML;
     uploadBtn.disabled = true;
     uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Uploading...';
     updateStatus('Uploading AOI file...', 'info');
     updateStatusBadge('Uploading');
-    
+
     try {
         const response = await fetch('/api/upload_aoi', {
             method: 'POST',
             body: formData
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             currentGeoJSON = data.geojson;
-            
+
             // Ensure map is initialized before displaying
             if (!map) {
                 initMap();
             }
-            
+
             // Show config card first
             document.getElementById('configCard').style.display = 'block';
-            
+
             // Wait a bit for map to be ready and card to be visible, then display AOI
             setTimeout(() => {
                 // Invalidate map size in case container was hidden
@@ -137,20 +128,20 @@ async function uploadAOI() {
                 }
                 displayAOIOnMap(currentGeoJSON);
             }, 300);
-            document.getElementById('uploadStatus').innerHTML = 
+            document.getElementById('uploadStatus').innerHTML =
                 '<div class="alert alert-success"><i class="fas fa-check-circle me-2"></i>AOI uploaded successfully!</div>';
             updateStatus('AOI uploaded successfully! You can now configure the satellite data fetch parameters.', 'success');
             updateStatusBadge('Ready');
             showAlert('AOI uploaded successfully!', 'success');
         } else {
-            document.getElementById('uploadStatus').innerHTML = 
+            document.getElementById('uploadStatus').innerHTML =
                 `<div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i>${data.error || 'Failed to upload AOI'}</div>`;
             updateStatus(data.error || 'Failed to upload AOI', 'danger');
             updateStatusBadge('Error');
             showAlert(data.error || 'Failed to upload AOI', 'danger');
         }
     } catch (error) {
-        document.getElementById('uploadStatus').innerHTML = 
+        document.getElementById('uploadStatus').innerHTML =
             `<div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i>Error: ${error.message}</div>`;
         updateStatus('Error uploading file: ' + error.message, 'danger');
         updateStatusBadge('Error');
@@ -167,21 +158,21 @@ function displayAOIOnMap(geojson) {
         console.error('Map not initialized');
         return;
     }
-    
+
     try {
         // Remove existing AOI layer
         if (aoiLayer) {
             map.removeLayer(aoiLayer);
             aoiLayer = null;
         }
-        
+
         // Validate geojson
         if (!geojson || !geojson.features || geojson.features.length === 0) {
             console.error('Invalid GeoJSON data');
             showAlert('Invalid GeoJSON data. Please check your file.', 'danger');
             return;
         }
-        
+
         // Add new AOI layer
         aoiLayer = L.geoJSON(geojson, {
             style: {
@@ -191,7 +182,7 @@ function displayAOIOnMap(geojson) {
                 fillColor: '#FF2D2D',
                 fillOpacity: 0.2
             },
-            onEachFeature: function(feature, layer) {
+            onEachFeature: function (feature, layer) {
                 if (feature.properties) {
                     let popupContent = '<div class="text-dark"><strong>AOI Feature</strong><br>';
                     for (let key in feature.properties) {
@@ -204,7 +195,7 @@ function displayAOIOnMap(geojson) {
                 }
             }
         }).addTo(map);
-        
+
         // Fit map to AOI bounds with padding
         if (aoiLayer.getBounds().isValid()) {
             map.fitBounds(aoiLayer.getBounds(), {
@@ -235,12 +226,12 @@ function displayAOIOnMap(geojson) {
                 }
             }
         }
-        
+
         // Invalidate map size to ensure proper rendering (multiple times to be sure)
         setTimeout(() => {
             map.invalidateSize();
         }, 100);
-        
+
         setTimeout(() => {
             map.invalidateSize();
             // Fit bounds again after size is corrected
@@ -251,7 +242,7 @@ function displayAOIOnMap(geojson) {
                 });
             }
         }, 300);
-        
+
         console.log('AOI displayed on map successfully');
     } catch (error) {
         console.error('Error displaying AOI on map:', error);
@@ -265,37 +256,37 @@ async function fetchSatelliteData() {
         showAlert('Please upload an AOI file first', 'warning');
         return;
     }
-    
+
     const startDate = document.getElementById('startDate').value;
     const endDate = document.getElementById('endDate').value;
     const cloudCoverage = document.getElementById('cloudCoverage').value;
     const satellite = document.getElementById('satellite').value;
     const fetchBtn = document.getElementById('fetchBtn');
-    
+
     if (!startDate || !endDate) {
         showAlert('Please select both start and end dates', 'warning');
         return;
     }
-    
+
     if (new Date(startDate) > new Date(endDate)) {
         showAlert('Start date must be before end date', 'warning');
         return;
     }
-    
+
     // Show loading state
     const originalBtnText = fetchBtn.innerHTML;
     fetchBtn.disabled = true;
     fetchBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Fetching...';
     updateStatus('Fetching satellite data... This may take several minutes. Check the data/satellite_images folder for results.', 'info');
     updateStatusBadge('Processing');
-    
+
     // Show progress container
     const progressContainer = document.getElementById('progressContainer');
     if (progressContainer) {
         progressContainer.style.display = 'block';
         simulateProgress();
     }
-    
+
     try {
         const response = await fetch('/api/fetch_satellite_data', {
             method: 'POST',
@@ -310,9 +301,9 @@ async function fetchSatelliteData() {
                 satellite: satellite
             })
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             updateStatus(data.message || 'Satellite data fetching started successfully!', 'success');
             updateStatusBadge('Success');
@@ -340,16 +331,16 @@ function simulateProgress() {
     const progressBar = document.getElementById('progressBar');
     const progressText = document.getElementById('progressText');
     let progress = 0;
-    
+
     const interval = setInterval(() => {
         progress += Math.random() * 10;
         if (progress > 90) progress = 90; // Don't go to 100% since it's background
-        
+
         if (progressBar) progressBar.style.width = progress + '%';
         if (progressText) {
             progressText.textContent = `Processing... ${Math.floor(progress)}%`;
         }
-        
+
         if (progress >= 90) {
             clearInterval(interval);
             if (progressText) {
@@ -363,14 +354,14 @@ function simulateProgress() {
 function updateStatus(message, type) {
     const statusDiv = document.getElementById('statusMessage');
     if (!statusDiv) return;
-    
+
     const icons = {
         'info': '<i class="fas fa-info-circle me-2"></i>',
         'success': '<i class="fas fa-check-circle me-2"></i>',
         'warning': '<i class="fas fa-exclamation-triangle me-2"></i>',
         'danger': '<i class="fas fa-exclamation-circle me-2"></i>'
     };
-    
+
     statusDiv.className = `alert alert-${type}`;
     statusDiv.innerHTML = (icons[type] || '') + message;
 }
@@ -379,7 +370,7 @@ function updateStatus(message, type) {
 function updateStatusBadge(status) {
     const badge = document.getElementById('statusBadge');
     if (!badge) return;
-    
+
     const badgeClasses = {
         'Ready': 'bg-info',
         'Uploading': 'bg-warning',
@@ -387,7 +378,7 @@ function updateStatusBadge(status) {
         'Success': 'bg-success',
         'Error': 'bg-danger'
     };
-    
+
     badge.textContent = status;
     badge.className = `badge ${badgeClasses[status] || 'bg-secondary'}`;
 }
@@ -397,21 +388,21 @@ function showAlert(message, type) {
     const alertBox = document.getElementById('alertBox');
     const alertText = document.getElementById('alertText');
     if (!alertBox || !alertText) return;
-    
+
     const icons = {
         'info': '<i class="fas fa-info-circle me-2"></i>',
         'success': '<i class="fas fa-check-circle me-2"></i>',
         'warning': '<i class="fas fa-exclamation-triangle me-2"></i>',
         'danger': '<i class="fas fa-exclamation-circle me-2"></i>'
     };
-    
+
     alertBox.className = `alert alert-${type}`;
     alertText.innerHTML = (icons[type] || '') + message;
     alertBox.style.display = 'block';
-    
+
     // Scroll to alert
     alertBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    
+
     setTimeout(() => {
         alertBox.style.display = 'none';
     }, 5000);
@@ -424,7 +415,7 @@ async function checkEEStatus() {
         const data = await response.json();
         const statusAlert = document.getElementById('eeStatusAlert');
         const statusText = document.getElementById('eeStatusText');
-        
+
         if (data.initialized) {
             statusAlert.className = 'alert alert-success';
             statusText.innerHTML = '<i class="fas fa-check-circle me-2"></i>Earth Engine is ready ✓';
@@ -448,7 +439,7 @@ async function checkEEStatus() {
 }
 
 // Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Wait a bit to ensure DOM is fully ready
     setTimeout(() => {
         initMap();
@@ -457,7 +448,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Also initialize map when window loads (in case DOMContentLoaded already fired)
-window.addEventListener('load', function() {
+window.addEventListener('load', function () {
     if (!map) {
         setTimeout(() => {
             initMap();

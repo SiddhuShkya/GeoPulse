@@ -1,15 +1,17 @@
+
 let map;
 let drawnItems = new L.FeatureGroup();
 let currentGeoJSON = null;
+let currentTileLayer = null;
 
 // Initialize map
 function initMap() {
     map = L.map('map').setView([28.7221, 80.6362], 7);
-    
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+
+    currentTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
-    
+
     // Add drawing controls
     const drawControl = new L.Control.Draw({
         draw: {
@@ -28,23 +30,23 @@ function initMap() {
             remove: true
         }
     });
-    
+
     map.addControl(drawControl);
     map.addLayer(drawnItems);
-    
+
     // Handle drawing events
-    map.on(L.Draw.Event.CREATED, function(e) {
+    map.on(L.Draw.Event.CREATED, function (e) {
         const layer = e.layer;
         drawnItems.clearLayers();
         drawnItems.addLayer(layer);
         updateGeoJSON();
     });
-    
-    map.on(L.Draw.Event.EDITED, function(e) {
+
+    map.on(L.Draw.Event.EDITED, function (e) {
         updateGeoJSON();
     });
-    
-    map.on(L.Draw.Event.DELETED, function(e) {
+
+    map.on(L.Draw.Event.DELETED, function (e) {
         currentGeoJSON = null;
         updateGeoJSONDisplay();
         document.getElementById('downloadBtn').disabled = true;
@@ -52,40 +54,35 @@ function initMap() {
 }
 
 // Change map type
-function changeMapType() {
-    // Get map type from global selector or local selector
-    const globalSelector = document.getElementById('globalMapType');
-    const localSelector = document.getElementById('mapType');
-    const mapType = globalSelector ? globalSelector.value : (localSelector ? localSelector.value : 'Default');
-    
-    // Sync selectors
-    if (globalSelector && localSelector) {
-        localSelector.value = mapType;
-    } else if (globalSelector) {
-        globalSelector.value = mapType;
+// Change map type
+// Change map type
+function changeMapType(type) {
+    console.log('Changing map type to:', type);
+    const mapType = type || 'Default';
+
+    if (!map) {
+        console.error('Map not initialized');
+        return;
     }
-    
-    if (!map) return;
-    
-    map.eachLayer(function(layer) {
-        if (layer instanceof L.TileLayer) {
-            map.removeLayer(layer);
-        }
-    });
-    
+
+    // Remove current tile layer
+    if (currentTileLayer) {
+        map.removeLayer(currentTileLayer);
+    }
+
     if (mapType === 'Satellite') {
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        currentTileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Esri World Imagery'
         }).addTo(map);
     } else {
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        currentTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
     }
-    
-    // Re-add drawn items
+
+    // Re-add drawn items (ensure they are on top)
     if (drawnItems.getLayers().length > 0) {
-        map.addLayer(drawnItems);
+        drawnItems.bringToFront();
     }
 }
 
@@ -96,7 +93,7 @@ async function searchLocation() {
         showAlert('Please enter a location name', 'warning');
         return;
     }
-    
+
     try {
         const response = await fetch('/api/search_location', {
             method: 'POST',
@@ -105,19 +102,19 @@ async function searchLocation() {
             },
             body: JSON.stringify({ location: locationName })
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             const lat = data.lat;
             const lon = data.lon;
-            
+
             document.getElementById('latitude').value = lat.toFixed(6);
             document.getElementById('longitude').value = lon.toFixed(6);
-            
+
             map.setView([lat, lon], 12);
             L.marker([lat, lon]).addTo(map)
-                .bindPopup(`📍 ${locationName}<br>${lat.toFixed(6)}, ${lon.toFixed(6)}`)
+                .bindPopup(`📍 ${locationName} <br>${lat.toFixed(6)}, ${lon.toFixed(6)}`)
                 .openPopup();
         } else {
             showAlert(data.error || 'Location not found', 'danger');
@@ -135,13 +132,13 @@ function updateGeoJSON() {
         document.getElementById('downloadBtn').disabled = true;
         return;
     }
-    
+
     const geoJson = drawnItems.toGeoJSON();
     currentGeoJSON = {
         type: 'FeatureCollection',
         features: geoJson.features || [geoJson]
     };
-    
+
     updateGeoJSONDisplay();
     document.getElementById('downloadBtn').disabled = false;
 }
@@ -149,7 +146,7 @@ function updateGeoJSON() {
 // Update GeoJSON display
 function updateGeoJSONDisplay() {
     const display = document.getElementById('geojsonDisplay');
-    
+
     if (currentGeoJSON) {
         display.innerHTML = `<pre>${JSON.stringify(currentGeoJSON, null, 2)}</pre>`;
     } else {
@@ -163,7 +160,7 @@ async function downloadAOI() {
         showAlert('No AOI to download', 'warning');
         return;
     }
-    
+
     try {
         const response = await fetch('/api/download_aoi', {
             method: 'POST',
@@ -172,7 +169,7 @@ async function downloadAOI() {
             },
             body: JSON.stringify({ geojson: currentGeoJSON })
         });
-        
+
         if (response.ok) {
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
@@ -206,25 +203,25 @@ function showAlert(message, type) {
     const alertBox = document.getElementById('alertBox');
     const alertText = document.getElementById('alertText');
     if (!alertBox || !alertText) return;
-    
+
     alertBox.className = `alert alert-${type}`;
     alertText.textContent = message;
     alertBox.style.display = 'block';
-    
+
     // Scroll to alert
     alertBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    
+
     setTimeout(() => {
         alertBox.style.display = 'none';
     }, 5000);
 }
 
 // Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     initMap();
-    
+
     // Allow Enter key to search
-    document.getElementById('locationSearch').addEventListener('keypress', function(e) {
+    document.getElementById('locationSearch').addEventListener('keypress', function (e) {
         if (e.key === 'Enter') {
             searchLocation();
         }
