@@ -48,8 +48,8 @@ function initMap() {
 
     map.on(L.Draw.Event.DELETED, function (e) {
         currentGeoJSON = null;
-        updateGeoJSONDisplay();
         document.getElementById('downloadBtn').disabled = true;
+        document.getElementById('viewGeoJSONBtn').disabled = true;
     });
 }
 
@@ -128,8 +128,8 @@ async function searchLocation() {
 function updateGeoJSON() {
     if (drawnItems.getLayers().length === 0) {
         currentGeoJSON = null;
-        updateGeoJSONDisplay();
         document.getElementById('downloadBtn').disabled = true;
+        document.getElementById('viewGeoJSONBtn').disabled = true;
         return;
     }
 
@@ -139,20 +139,13 @@ function updateGeoJSON() {
         features: geoJson.features || [geoJson]
     };
 
-    updateGeoJSONDisplay();
+
     document.getElementById('downloadBtn').disabled = false;
+    document.getElementById('viewGeoJSONBtn').disabled = false;
 }
 
 // Update GeoJSON display
-function updateGeoJSONDisplay() {
-    const display = document.getElementById('geojsonDisplay');
 
-    if (currentGeoJSON) {
-        display.innerHTML = `<pre>${JSON.stringify(currentGeoJSON, null, 2)}</pre>`;
-    } else {
-        display.innerHTML = '<p class="text-muted">Draw a polygon on the map to see AOI here.</p>';
-    }
-}
 
 // Download AOI
 async function downloadAOI() {
@@ -194,8 +187,8 @@ async function downloadAOI() {
 function clearMap() {
     drawnItems.clearLayers();
     currentGeoJSON = null;
-    updateGeoJSONDisplay();
     document.getElementById('downloadBtn').disabled = true;
+    document.getElementById('viewGeoJSONBtn').disabled = true;
 }
 
 // Show alert
@@ -227,4 +220,33 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 });
+
+// View GeoJSON in modal
+function viewGeoJSON() {
+    if (!currentGeoJSON) {
+        showAlert('No AOI to view', 'warning');
+        return;
+    }
+
+    const content = JSON.stringify(currentGeoJSON, null, 2);
+    document.getElementById('modalGeoJSONContent').textContent = content;
+
+    const modal = new bootstrap.Modal(document.getElementById('geojsonModal'));
+    modal.show();
+}
+
+// Copy GeoJSON to clipboard
+function copyGeoJSON() {
+    if (!currentGeoJSON) {
+        return;
+    }
+
+    const content = JSON.stringify(currentGeoJSON, null, 2);
+    navigator.clipboard.writeText(content).then(() => {
+        showAlert('GeoJSON copied to clipboard!', 'success');
+    }).catch(err => {
+        console.error('Failed to copy: ', err);
+        showAlert('Failed to copy to clipboard', 'danger');
+    });
+}
 
