@@ -209,6 +209,43 @@ function showAlert(message, type) {
     }, 5000);
 }
 
+// Update map from coordinates input
+function updateMapFromCoordinates() {
+    const latInput = document.getElementById('latitude');
+    const lonInput = document.getElementById('longitude');
+
+    const lat = parseFloat(latInput.value);
+    const lon = parseFloat(lonInput.value);
+
+    if (isNaN(lat) || isNaN(lon)) {
+        return; // Invalid input, do nothing
+    }
+
+    if (lat < -90 || lat > 90) {
+        showAlert('Latitude must be between -90 and 90', 'warning');
+        return;
+    }
+
+    if (lon < -180 || lon > 180) {
+        showAlert('Longitude must be between -180 and 180', 'warning');
+        return;
+    }
+
+    map.setView([lat, lon], map.getZoom());
+
+    // Update or add marker
+    // Note: We might want to keep track of a specific search marker if we want to move it
+    // For now, let's just add a new one or move the existing one if we can track it.
+    // Since searchLocation adds a marker but doesn't save it to a variable accessible here easily without refactoring,
+    // let's just add a new marker for now, or clear previous markers if we want to be cleaner.
+    // But to be simple and consistent with searchLocation, let's just add it.
+    // Actually, let's try to be a bit cleaner.
+
+    L.marker([lat, lon]).addTo(map)
+        .bindPopup(`📍 Custom Location <br>${lat.toFixed(6)}, ${lon.toFixed(6)}`)
+        .openPopup();
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function () {
     initMap();
@@ -219,6 +256,17 @@ document.addEventListener('DOMContentLoaded', function () {
             searchLocation();
         }
     });
+
+    // Add event listeners for latitude and longitude inputs
+    const latInput = document.getElementById('latitude');
+    const lonInput = document.getElementById('longitude');
+
+    if (latInput && lonInput) {
+        ['change', 'input'].forEach(evt => {
+            latInput.addEventListener(evt, updateMapFromCoordinates);
+            lonInput.addEventListener(evt, updateMapFromCoordinates);
+        });
+    }
 });
 
 // View GeoJSON in modal
