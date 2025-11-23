@@ -4,6 +4,7 @@ import ee
 import tempfile
 import zipfile
 import requests
+import uuid
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_file, session
 from werkzeug.utils import secure_filename
@@ -28,6 +29,9 @@ os.makedirs('data/satellite_images', exist_ok=True)
 
 # Global flag to track Earth Engine initialization status
 EE_INITIALIZED = False
+
+# Global dictionary to store background tasks
+TASKS = {}
 
 # Initialize Earth Engine
 def init_ee():
@@ -322,6 +326,13 @@ def _remove_z_recurse(coords):
     # Otherwise, it's a list of lists (or list of list of lists...)
     return [_remove_z_recurse(c) for c in coords]
 
+@app.route('/api/task_status/<task_id>', methods=['GET'])
+def task_status(task_id):
+    task = TASKS.get(task_id)
+    if not task:
+        return jsonify({'error': 'Task not found'}), 404
+    return jsonify(task)
+
 @app.route('/api/fetch_satellite_data', methods=['POST'])
 def fetch_satellite_data_api():
     global EE_INITIALIZED
@@ -355,23 +366,35 @@ def fetch_satellite_data_api():
         
         geom = geom.simplify(100)
         
+        # Create task
+        task_id = str(uuid.uuid4())
+        TASKS[task_id] = {
+            'status': 'processing',
+            'progress': 0,
+            'message': 'Initializing...',
+            'details': 'Starting download process'
+        }
+        
         # Start fetching in background thread
         thread = threading.Thread(
             target=fetch_satellite_images,
-            args=(geom, start_date, end_date, cloud_coverage, satellite)
+            args=(geom, start_date, end_date, cloud_coverage, satellite, task_id)
         )
         thread.daemon = True
         thread.start()
         
         return jsonify({
             'success': True,
-            'message': 'Satellite data fetching started. Check the data/satellite_images folder for results.'
+            'task_id': task_id,
+            'message': 'Satellite data fetching started.'
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-def fetch_satellite_images(geom, start_date, end_date, cloud_coverage, satellite):
+def fetch_satellite_images(geom, start_date, end_date, cloud_coverage, satellite, task_id):
     try:
+        TASKS[task_id]['message'] = 'Searching for images...'
+        TASKS[task_id]['progress'] = 5
         if satellite == 'Sentinel-2':
             collection_name = "COPERNICUS/S2_SR_HARMONIZED"
             mask_func = mask_s2_clouds
@@ -398,13 +421,24 @@ def fetch_satellite_images(geom, start_date, end_date, cloud_coverage, satellite
         # Apply cloud masking
         col = col.map(mask_func)
         
+        TASKS[task_id]['message'] = 'Counting images...'
+        TASKS[task_id]['progress'] = 10
+        
         count = col.size().getInfo()
         if count == 0:
             print("No satellite images found.")
+            TASKS[task_id]['status'] = 'error'
+            TASKS[task_id]['message'] = 'No satellite images found for the specified criteria.'
+            TASKS[task_id]['progress'] = 100
             return
+        
+        TASKS[task_id]['message'] = f'Found {count} images. Preparing download...'
+        TASKS[task_id]['progress'] = 15
         
         imgs = col.toList(count)
         months_saved = set()
+        
+        downloaded_count = 0
         
         for i in range(count):
             img = ee.Image(imgs.get(i))
@@ -424,7 +458,9 @@ def fetch_satellite_images(geom, start_date, end_date, cloud_coverage, satellite
             img = img.clip(geom)
             region = geom.bounds().getInfo()["coordinates"]
             
-            for band in bands:
+            TASKS[task_id]['message'] = f'Downloading image for {m} {y}...'
+            
+            for band_idx, band in enumerate(bands):
                 filename = f"{prefix}_{band}_{date_str}.TIF"
                 path = os.path.join(folder, filename)
                 
@@ -443,10 +479,26 @@ def fetch_satellite_images(geom, start_date, end_date, cloud_coverage, satellite
                     print(f"Saved: {path}")
                 else:
                     print(f"Failed: {path}")
+                
+                # Update progress
+                # Calculate progress based on (i / count) + (band_idx / len(bands)) / count
+                # But since we skip months, this is approximate. Let's just increment.
+                
+            downloaded_count += 1
+            # Progress from 15% to 95%
+            progress = 15 + (downloaded_count / len(months_saved) if months_saved else 1) * 80
+            TASKS[task_id]['progress'] = min(95, int(progress))
         
         print(f"✅ All monthly GeoTIFFs downloaded successfully for {satellite}!")
+        TASKS[task_id]['status'] = 'success'
+        TASKS[task_id]['message'] = f'Successfully downloaded images for {len(months_saved)} months.'
+        TASKS[task_id]['progress'] = 100
+        
     except Exception as e:
         print(f"Error fetching satellite data: {e}")
+        TASKS[task_id]['status'] = 'error'
+        TASKS[task_id]['message'] = f'Error: {str(e)}'
+        TASKS[task_id]['progress'] = 100
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

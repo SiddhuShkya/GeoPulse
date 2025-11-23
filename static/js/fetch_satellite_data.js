@@ -305,28 +305,80 @@ async function fetchSatelliteData() {
         const data = await response.json();
 
         if (response.ok) {
-            updateStatus(data.message || 'Satellite data fetching started successfully!', 'success');
-            updateStatusBadge('Success');
-            showAlert('Satellite data fetching started! Check the data/satellite_images folder for results.', 'success');
+            updateStatus(data.message || 'Satellite data fetching started successfully!', 'info');
+            updateStatusBadge('Processing');
+
+            // Start polling for progress
+            if (data.task_id) {
+                pollProgress(data.task_id);
+            } else {
+                // Fallback if no task_id (shouldn't happen with new backend)
+                simulateProgress();
+            }
         } else {
             updateStatus(data.error || 'Failed to fetch satellite data', 'danger');
             updateStatusBadge('Error');
             showAlert(data.error || 'Failed to fetch satellite data', 'danger');
+            fetchBtn.disabled = false;
+            fetchBtn.innerHTML = originalBtnText;
+            if (progressContainer) progressContainer.style.display = 'none';
         }
     } catch (error) {
         updateStatus('Error fetching satellite data: ' + error.message, 'danger');
         updateStatusBadge('Error');
         showAlert('Error fetching satellite data: ' + error.message, 'danger');
-    } finally {
         fetchBtn.disabled = false;
         fetchBtn.innerHTML = originalBtnText;
-        if (progressContainer) {
-            progressContainer.style.display = 'none';
-        }
+        if (progressContainer) progressContainer.style.display = 'none';
     }
 }
 
-// Simulate progress (since it's background processing)
+// Poll progress from backend
+function pollProgress(taskId) {
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const fetchBtn = document.getElementById('fetchBtn');
+
+    const interval = setInterval(async () => {
+        try {
+            const response = await fetch(`/api/task_status/${taskId}`);
+            const data = await response.json();
+
+            if (response.ok) {
+                // Update progress text
+                if (progressText) progressText.textContent = `${data.message} (${data.progress}%)`;
+
+                // Check status
+                if (data.status === 'success') {
+                    clearInterval(interval);
+                    updateStatus(data.message, 'success');
+                    updateStatusBadge('Success');
+                    showAlert('Satellite data fetching completed successfully!', 'success');
+
+                    fetchBtn.disabled = false;
+                    fetchBtn.innerHTML = '<i class="fas fa-rocket me-2"></i>Fetch GeoTIFFs';
+
+                    // Keep progress bar visible for a moment then hide or keep it full
+                    setTimeout(() => {
+                        // Optional: hide progress container
+                    }, 2000);
+                } else if (data.status === 'error') {
+                    clearInterval(interval);
+                    updateStatus(data.message, 'danger');
+                    updateStatusBadge('Error');
+                    showAlert(data.message, 'danger');
+
+                    fetchBtn.disabled = false;
+                    fetchBtn.innerHTML = '<i class="fas fa-rocket me-2"></i>Fetch GeoTIFFs';
+                }
+            }
+        } catch (error) {
+            console.error('Error polling progress:', error);
+        }
+    }, 1000);
+}
+
+// Simulate progress (fallback)
 function simulateProgress() {
     const progressBar = document.getElementById('progressBar');
     const progressText = document.getElementById('progressText');
@@ -336,7 +388,6 @@ function simulateProgress() {
         progress += Math.random() * 10;
         if (progress > 90) progress = 90; // Don't go to 100% since it's background
 
-        if (progressBar) progressBar.style.width = progress + '%';
         if (progressText) {
             progressText.textContent = `Processing... ${Math.floor(progress)}%`;
         }
