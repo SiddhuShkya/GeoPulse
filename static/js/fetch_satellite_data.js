@@ -408,42 +408,11 @@ function showAlert(message, type) {
     }, 5000);
 }
 
-// Check Earth Engine status
-async function checkEEStatus() {
-    try {
-        const response = await fetch('/api/ee_status');
-        const data = await response.json();
-        const statusAlert = document.getElementById('eeStatusAlert');
-        const statusText = document.getElementById('eeStatusText');
-
-        if (data.initialized) {
-            statusAlert.className = 'alert alert-success';
-            statusText.innerHTML = '<i class="fas fa-check-circle me-2"></i>Earth Engine is ready ✓';
-            statusAlert.style.display = 'block';
-        } else {
-            statusAlert.className = 'alert alert-warning';
-            if (data.status === 'not_configured') {
-                statusText.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Earth Engine is not configured. Please run <code>earthengine authenticate</code> or set up a service account.';
-            } else {
-                statusText.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i>Earth Engine initialization failed. Check server logs for details.';
-            }
-            statusAlert.style.display = 'block';
-        }
-    } catch (error) {
-        const statusAlert = document.getElementById('eeStatusAlert');
-        const statusText = document.getElementById('eeStatusText');
-        statusAlert.className = 'alert alert-danger';
-        statusText.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i>Could not check Earth Engine status: ' + error.message;
-        statusAlert.style.display = 'block';
-    }
-}
-
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function () {
     // Wait a bit to ensure DOM is fully ready
     setTimeout(() => {
         initMap();
-        checkEEStatus();
     }, 100);
 });
 

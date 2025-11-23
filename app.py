@@ -305,6 +305,23 @@ def download_aoi():
         mimetype='application/json'
     )
 
+def remove_z_coordinates(geometry):
+    """Recursively remove Z coordinates from geometry coordinates."""
+    if 'coordinates' in geometry:
+        geometry['coordinates'] = _remove_z_recurse(geometry['coordinates'])
+    return geometry
+
+def _remove_z_recurse(coords):
+    if not coords:
+        return coords
+    
+    # Check if this is a coordinate point (list of numbers)
+    if isinstance(coords[0], (int, float)):
+        return coords[:2]  # Keep only x, y
+    
+    # Otherwise, it's a list of lists (or list of list of lists...)
+    return [_remove_z_recurse(c) for c in coords]
+
 @app.route('/api/fetch_satellite_data', methods=['POST'])
 def fetch_satellite_data_api():
     global EE_INITIALIZED
@@ -327,9 +344,14 @@ def fetch_satellite_data_api():
     try:
         # Parse geometry
         if geojson_data["type"] == "FeatureCollection":
-            geom = ee.Geometry(geojson_data["features"][0]["geometry"])
+            geom_dict = geojson_data["features"][0]["geometry"]
         else:
-            geom = ee.Geometry(geojson_data["geometry"])
+            geom_dict = geojson_data["geometry"]
+            
+        # Sanitize geometry (remove Z coordinates if present)
+        geom_dict = remove_z_coordinates(geom_dict)
+        
+        geom = ee.Geometry(geom_dict)
         
         geom = geom.simplify(100)
         
