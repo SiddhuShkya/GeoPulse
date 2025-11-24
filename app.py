@@ -116,7 +116,26 @@ def allowed_file(filename):
 
 def load_geojson(file_path):
     with open(file_path, 'r') as f:
-        return json.load(f)
+        data = json.load(f)
+    
+    # Normalize to FeatureCollection
+    if data.get('type') == 'FeatureCollection':
+        return data
+    elif data.get('type') == 'Feature':
+        return {
+            "type": "FeatureCollection",
+            "features": [data]
+        }
+    else:
+        # Assume it's a geometry or other object that can be wrapped in a Feature
+        return {
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "properties": {},
+                "geometry": data
+            }]
+        }
 
 def load_kml(file_path):
     k = kml.KML()
