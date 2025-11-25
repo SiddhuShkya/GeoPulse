@@ -2,6 +2,8 @@ let map;
 let aoiLayer = null;
 let currentGeoJSON = null;
 let currentTileLayer = null;
+let sentinelChoices = null;
+let landsatChoices = null;
 
 // Initialize map
 function initMap() {
@@ -251,17 +253,44 @@ function displayAOIOnMap(geojson) {
 }
 
 // Fetch satellite data
-async function fetchSatelliteData() {
+// Fetch satellite data
+async function fetchSatelliteData(satellite) {
     if (!currentGeoJSON) {
         showAlert('Please upload an AOI file first', 'warning');
         return;
     }
 
-    const startDate = document.getElementById('startDate').value;
-    const endDate = document.getElementById('endDate').value;
-    const cloudCoverage = document.getElementById('cloudCoverage').value;
-    const satellite = document.getElementById('satellite').value;
-    const fetchBtn = document.getElementById('fetchBtn');
+    let startDate, endDate, cloudCoverage, bandsSelect, fetchBtnId;
+
+    if (satellite === 'Sentinel-2') {
+        startDate = document.getElementById('startDateSentinel').value;
+        endDate = document.getElementById('endDateSentinel').value;
+        cloudCoverage = document.getElementById('cloudCoverageSentinel').value;
+        bandsSelect = document.getElementById('bandsSentinel');
+        fetchBtnId = 'fetchBtnSentinel';
+    } else if (satellite === 'Landsat-8') {
+        startDate = document.getElementById('startDateLandsat').value;
+        endDate = document.getElementById('endDateLandsat').value;
+        cloudCoverage = document.getElementById('cloudCoverageLandsat').value;
+        bandsSelect = document.getElementById('bandsLandsat');
+        fetchBtnId = 'fetchBtnLandsat';
+    } else {
+        console.error('Unknown satellite:', satellite);
+        return;
+    }
+
+    const fetchBtn = document.getElementById(fetchBtnId);
+
+    // Get selected bands
+    let selectedBands = [];
+    if (satellite === 'Sentinel-2' && sentinelChoices) {
+        selectedBands = sentinelChoices.getValue(true);
+    } else if (satellite === 'Landsat-8' && landsatChoices) {
+        selectedBands = landsatChoices.getValue(true);
+    } else {
+        // Fallback to standard select if Choices not initialized
+        selectedBands = Array.from(bandsSelect.selectedOptions).map(option => option.value);
+    }
 
     if (!startDate || !endDate) {
         showAlert('Please select both start and end dates', 'warning');
@@ -273,11 +302,16 @@ async function fetchSatelliteData() {
         return;
     }
 
+    if (selectedBands.length === 0) {
+        showAlert('Please select at least one band', 'warning');
+        return;
+    }
+
     // Show loading state
     const originalBtnText = fetchBtn.innerHTML;
     fetchBtn.disabled = true;
     fetchBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Fetching...';
-    updateStatus('Fetching satellite data... This may take several minutes. Check the data/satellite_images folder for results.', 'info');
+    updateStatus(`Fetching ${satellite} data... This may take several minutes. Check the data/satellite_images folder for results.`, 'info');
     updateStatusBadge('Processing');
 
     // Show progress container
@@ -298,7 +332,8 @@ async function fetchSatelliteData() {
                 start_date: startDate,
                 end_date: endDate,
                 cloud_coverage: parseInt(cloudCoverage),
-                satellite: satellite
+                satellite: satellite,
+                bands: selectedBands
             })
         });
 
@@ -310,7 +345,7 @@ async function fetchSatelliteData() {
 
             // Start polling for progress
             if (data.task_id) {
-                pollProgress(data.task_id);
+                pollProgress(data.task_id, fetchBtnId);
             } else {
                 // Fallback if no task_id (shouldn't happen with new backend)
                 simulateProgress();
@@ -334,10 +369,10 @@ async function fetchSatelliteData() {
 }
 
 // Poll progress from backend
-function pollProgress(taskId) {
+function pollProgress(taskId, fetchBtnId) {
     const progressBar = document.getElementById('progressBar');
     const progressText = document.getElementById('progressText');
-    const fetchBtn = document.getElementById('fetchBtn');
+    const fetchBtn = document.getElementById(fetchBtnId || 'fetchBtn');
 
     const interval = setInterval(async () => {
         try {
@@ -355,8 +390,10 @@ function pollProgress(taskId) {
                     updateStatusBadge('Success');
                     showAlert('Satellite data fetching completed successfully!', 'success');
 
-                    fetchBtn.disabled = false;
-                    fetchBtn.innerHTML = '<i class="fas fa-rocket me-2"></i>Fetch GeoTIFFs';
+                    if (fetchBtn) {
+                        fetchBtn.disabled = false;
+                        fetchBtn.innerHTML = '<i class="fas fa-rocket me-2"></i>Fetch GeoTIFFs';
+                    }
 
                     // Keep progress bar visible for a moment then hide or keep it full
                     setTimeout(() => {
@@ -368,8 +405,10 @@ function pollProgress(taskId) {
                     updateStatusBadge('Error');
                     showAlert(data.message, 'danger');
 
-                    fetchBtn.disabled = false;
-                    fetchBtn.innerHTML = '<i class="fas fa-rocket me-2"></i>Fetch GeoTIFFs';
+                    if (fetchBtn) {
+                        fetchBtn.disabled = false;
+                        fetchBtn.innerHTML = '<i class="fas fa-rocket me-2"></i>Fetch GeoTIFFs';
+                    }
                 }
             }
         } catch (error) {
@@ -464,6 +503,27 @@ document.addEventListener('DOMContentLoaded', function () {
     // Wait a bit to ensure DOM is fully ready
     setTimeout(() => {
         initMap();
+
+        // Initialize Choices.js
+        if (document.getElementById('bandsSentinel')) {
+            sentinelChoices = new Choices('#bandsSentinel', {
+                removeItemButton: true,
+                placeholder: true,
+                placeholderValue: 'Select bands',
+                searchPlaceholderValue: 'Search bands...',
+                itemSelectText: '',
+            });
+        }
+
+        if (document.getElementById('bandsLandsat')) {
+            landsatChoices = new Choices('#bandsLandsat', {
+                removeItemButton: true,
+                placeholder: true,
+                placeholderValue: 'Select bands',
+                searchPlaceholderValue: 'Search bands...',
+                itemSelectText: '',
+            });
+        }
     }, 100);
 });
 

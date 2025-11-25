@@ -3,6 +3,48 @@
 {% block title %}Fetch Satellite Data - GeoPulse{% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
+<style>
+    /* Choices.js Custom Styling for Streamlit-like look */
+    .choices {
+        margin-bottom: 0;
+    }
+
+    .choices__inner {
+        background-color: #2b3035;
+        border: 1px solid #495057;
+        border-radius: 0.375rem;
+        min-height: 38px;
+        padding: 3px 10px;
+        color: #e9ecef;
+    }
+
+    .choices__input {
+        background-color: transparent;
+        color: #e9ecef;
+    }
+
+    .choices__list--multiple .choices__item {
+        background-color: #0d6efd;
+        border: 1px solid #0d6efd;
+        border-radius: 4px;
+        color: #ffffff;
+    }
+
+    .choices__list--dropdown {
+        background-color: #2b3035;
+        border: 1px solid #495057;
+        color: #e9ecef;
+    }
+
+    .choices__list--dropdown .choices__item--selectable.is-highlighted {
+        background-color: #495057;
+    }
+
+    .choices__list--dropdown .choices__item {
+        color: #000000;
+    }
+</style>
 <div class="container-fluid">
     <div class="row mb-4 fade-in">
         <div class="col-12">
@@ -39,7 +81,7 @@
                     <button class="btn btn-primary w-100" onclick="uploadAOI()" id="uploadBtn">
                         <i class="fas fa-upload me-2"></i>Upload AOI
                     </button>
-                    <div id="uploadStatus" class="mt-3"></div>
+                    <!-- <div id="uploadStatus" class="mt-3"></div> -->
                 </div>
             </div>
 
@@ -85,46 +127,124 @@
             </div>
             <div class="card mb-3" id="configCard" style="display: none;">
                 <div class="card-header">
-                    <h5 class="mb-0">
-                        <i class="fas fa-sliders-h me-2"></i>Configuration
-                    </h5>
+                    <ul class="nav nav-tabs card-header-tabs" id="satelliteTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="sentinel-tab" data-bs-toggle="tab"
+                                data-bs-target="#sentinel" type="button" role="tab" aria-controls="sentinel"
+                                aria-selected="true">
+                                🛰️ Sentinel-2
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="landsat-tab" data-bs-toggle="tab" data-bs-target="#landsat"
+                                type="button" role="tab" aria-controls="landsat" aria-selected="false">
+                                🛰️ Landsat-8
+                            </button>
+                        </li>
+                    </ul>
                 </div>
                 <div class="card-body">
-                    <div class="mb-3">
-                        <label class="form-label">
-                            <i class="fas fa-calendar-alt me-1"></i>Start Date
-                        </label>
-                        <input type="date" id="startDate" class="form-control" value="">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">
-                            <i class="fas fa-calendar-check me-1"></i>End Date
-                        </label>
-                        <input type="date" id="endDate" class="form-control" value="">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">
-                            <i class="fas fa-cloud me-1"></i>Maximum Cloud Coverage
-                            <span class="badge bg-primary ms-2" id="cloudValue">20%</span>
-                        </label>
-                        <input type="range" id="cloudCoverage" class="form-range" min="0" max="100" value="20" step="5">
-                        <div class="d-flex justify-content-between">
-                            <small class="text-muted">0%</small>
-                            <small class="text-muted">100%</small>
+                    <div class="tab-content" id="satelliteTabsContent">
+                        <!-- Sentinel-2 Configuration -->
+                        <div class="tab-pane fade show active" id="sentinel" role="tabpanel"
+                            aria-labelledby="sentinel-tab">
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <i class="fas fa-layer-group me-1"></i>Select Bands
+                                </label>
+                                <select id="bandsSentinel" class="form-select" multiple size="5">
+                                    <option value="B1" selected>B1 (Coastal Aerosol)</option>
+                                    <option value="B2" selected>B2 (Blue)</option>
+                                    <option value="B3" selected>B3 (Green)</option>
+                                    <option value="B4" selected>B4 (Red)</option>
+                                    <option value="B5" selected>B5 (Vegetation Red Edge)</option>
+                                    <option value="B6" selected>B6 (Vegetation Red Edge)</option>
+                                    <option value="B7" selected>B7 (Vegetation Red Edge)</option>
+                                    <option value="B8" selected>B8 (NIR)</option>
+                                    <option value="B8A" selected>B8A (Narrow NIR)</option>
+                                    <option value="B9" selected>B9 (Water Vapour)</option>
+                                    <option value="B11" selected>B11 (SWIR)</option>
+                                    <option value="B12" selected>B12 (SWIR)</option>
+                                </select>
+                                <small class="text-muted">Hold Ctrl/Cmd to select multiple</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <i class="fas fa-calendar-alt me-1"></i>Start Date
+                                </label>
+                                <input type="date" id="startDateSentinel" class="form-control">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <i class="fas fa-calendar-check me-1"></i>End Date
+                                </label>
+                                <input type="date" id="endDateSentinel" class="form-control">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <i class="fas fa-cloud me-1"></i>Maximum Cloud Coverage
+                                    <span class="badge bg-primary ms-2" id="cloudValueSentinel">20%</span>
+                                </label>
+                                <input type="range" id="cloudCoverageSentinel" class="form-range" min="0" max="100"
+                                    value="20" step="5" oninput="updateCloudBadge('Sentinel', this.value)">
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-muted">0%</small>
+                                    <small class="text-muted">100%</small>
+                                </div>
+                            </div>
+                            <button class="btn btn-success w-100" onclick="fetchSatelliteData('Sentinel-2')"
+                                id="fetchBtnSentinel">
+                                <i class="fas fa-rocket me-2"></i>Fetch Sentinel-2 Data
+                            </button>
+                        </div>
+
+                        <!-- Landsat-8 Configuration -->
+                        <div class="tab-pane fade" id="landsat" role="tabpanel" aria-labelledby="landsat-tab">
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <i class="fas fa-layer-group me-1"></i>Select Bands
+                                </label>
+                                <select id="bandsLandsat" class="form-select" multiple size="5">
+                                    <option value="SR_B1" selected>SR_B1 (Coastal/Aerosol)</option>
+                                    <option value="SR_B2" selected>SR_B2 (Blue)</option>
+                                    <option value="SR_B3" selected>SR_B3 (Green)</option>
+                                    <option value="SR_B4" selected>SR_B4 (Red)</option>
+                                    <option value="SR_B5" selected>SR_B5 (NIR)</option>
+                                    <option value="SR_B6" selected>SR_B6 (SWIR 1)</option>
+                                    <option value="SR_B7" selected>SR_B7 (SWIR 2)</option>
+                                </select>
+                                <small class="text-muted">Hold Ctrl/Cmd to select multiple</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <i class="fas fa-calendar-alt me-1"></i>Start Date
+                                </label>
+                                <input type="date" id="startDateLandsat" class="form-control">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <i class="fas fa-calendar-check me-1"></i>End Date
+                                </label>
+                                <input type="date" id="endDateLandsat" class="form-control">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <i class="fas fa-cloud me-1"></i>Maximum Cloud Coverage
+                                    <span class="badge bg-primary ms-2" id="cloudValueLandsat">20%</span>
+                                </label>
+                                <input type="range" id="cloudCoverageLandsat" class="form-range" min="0" max="100"
+                                    value="20" step="5" oninput="updateCloudBadge('Landsat', this.value)">
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-muted">0%</small>
+                                    <small class="text-muted">100%</small>
+                                </div>
+                            </div>
+                            <button class="btn btn-success w-100" onclick="fetchSatelliteData('Landsat-8')"
+                                id="fetchBtnLandsat">
+                                <i class="fas fa-rocket me-2"></i>Fetch Landsat-8 Data
+                            </button>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">
-                            <i class="fas fa-satellite me-1"></i>Select Satellite
-                        </label>
-                        <select id="satellite" class="form-select">
-                            <option value="Sentinel-2">🛰️ Sentinel-2</option>
-                            <option value="Landsat-8">🛰️ Landsat-8</option>
-                        </select>
-                    </div>
-                    <button class="btn btn-success w-100" onclick="fetchSatelliteData()" id="fetchBtn">
-                        <i class="fas fa-rocket me-2"></i>Fetch GeoTIFFs
-                    </button>
                 </div>
             </div>
         </div>
@@ -144,30 +264,36 @@
         const oneYearAgo = new Date(today);
         oneYearAgo.setFullYear(today.getFullYear() - 1);
 
-        document.getElementById('endDate').value = today.toISOString().split('T')[0];
-        document.getElementById('startDate').value = oneYearAgo.toISOString().split('T')[0];
+        const todayStr = today.toISOString().split('T')[0];
+        const oneYearAgoStr = oneYearAgo.toISOString().split('T')[0];
 
-        // Cloud coverage slider with better UX
-        const cloudSlider = document.getElementById('cloudCoverage');
-        const cloudValue = document.getElementById('cloudValue');
+        // Set dates for Sentinel
+        document.getElementById('endDateSentinel').value = todayStr;
+        document.getElementById('startDateSentinel').value = oneYearAgoStr;
 
-        cloudSlider.addEventListener('input', function () {
-            const value = this.value;
-            cloudValue.textContent = value + '%';
+        // Set dates for Landsat
+        document.getElementById('endDateLandsat').value = todayStr;
+        document.getElementById('startDateLandsat').value = oneYearAgoStr;
 
-            // Update badge color based on value
-            if (value <= 20) {
-                cloudValue.className = 'badge bg-success ms-2';
-            } else if (value <= 50) {
-                cloudValue.className = 'badge bg-warning ms-2';
-            } else {
-                cloudValue.className = 'badge bg-danger ms-2';
-            }
-        });
-
-        // Trigger initial update
-        cloudSlider.dispatchEvent(new Event('input'));
+        // Initialize cloud badges
+        updateCloudBadge('Sentinel', 20);
+        updateCloudBadge('Landsat', 20);
     });
+
+    function updateCloudBadge(satellite, value) {
+        const cloudValue = document.getElementById(`cloudValue${satellite}`);
+        cloudValue.textContent = value + '%';
+
+        // Update badge color based on value
+        if (value <= 20) {
+            cloudValue.className = 'badge bg-success ms-2';
+        } else if (value <= 50) {
+            cloudValue.className = 'badge bg-warning ms-2';
+        } else {
+            cloudValue.className = 'badge bg-danger ms-2';
+        }
+    }
 </script>
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 <script src="{{ url_for('static', filename='js/fetch_satellite_data.js') }}"></script>
 {% endblock %}

@@ -367,6 +367,7 @@ def fetch_satellite_data_api():
     end_date = data.get('end_date')
     cloud_coverage = data.get('cloud_coverage', 20)
     satellite = data.get('satellite', 'Sentinel-2')
+    bands_selected = data.get('bands', [])
     
     if not all([geojson_data, start_date, end_date]):
         return jsonify({'error': 'Missing required parameters'}), 400
@@ -397,7 +398,7 @@ def fetch_satellite_data_api():
         # Start fetching in background thread
         thread = threading.Thread(
             target=fetch_satellite_images,
-            args=(geom, start_date, end_date, cloud_coverage, satellite, task_id)
+            args=(geom, start_date, end_date, cloud_coverage, satellite, task_id, bands_selected)
         )
         thread.daemon = True
         thread.start()
@@ -410,7 +411,7 @@ def fetch_satellite_data_api():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-def fetch_satellite_images(geom, start_date, end_date, cloud_coverage, satellite, task_id):
+def fetch_satellite_images(geom, start_date, end_date, cloud_coverage, satellite, task_id, bands_selected=None):
     try:
         TASKS[task_id]['message'] = 'Searching for images...'
         TASKS[task_id]['progress'] = 5
@@ -427,6 +428,15 @@ def fetch_satellite_images(geom, start_date, end_date, cloud_coverage, satellite
         else:
             print(f"Unknown satellite: {satellite}")
             return
+        
+        # Filter bands if specified
+        if bands_selected:
+            # Validate bands
+            valid_bands = [b for b in bands_selected if b in bands]
+            if valid_bands:
+                bands = valid_bands
+            else:
+                print("No valid bands selected, using default all bands")
         
         # Build collection with filters
         col = ee.ImageCollection(collection_name).filterBounds(geom).filterDate(start_date, end_date)
