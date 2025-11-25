@@ -130,21 +130,15 @@ async function uploadAOI() {
                 }
                 displayAOIOnMap(currentGeoJSON);
             }, 300);
-            document.getElementById('uploadStatus').innerHTML =
-                '<div class="alert alert-success"><i class="fas fa-check-circle me-2"></i>AOI uploaded successfully!</div>';
             updateStatus('AOI uploaded successfully! You can now configure the satellite data fetch parameters.', 'success');
             updateStatusBadge('Ready');
             showAlert('AOI uploaded successfully!', 'success');
         } else {
-            document.getElementById('uploadStatus').innerHTML =
-                `<div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i>${data.error || 'Failed to upload AOI'}</div>`;
             updateStatus(data.error || 'Failed to upload AOI', 'danger');
             updateStatusBadge('Error');
             showAlert(data.error || 'Failed to upload AOI', 'danger');
         }
     } catch (error) {
-        document.getElementById('uploadStatus').innerHTML =
-            `<div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i>Error: ${error.message}</div>`;
         updateStatus('Error uploading file: ' + error.message, 'danger');
         updateStatusBadge('Error');
         showAlert('Error uploading file: ' + error.message, 'danger');
